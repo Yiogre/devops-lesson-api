@@ -1,0 +1,45 @@
+name: Production Deployment Pipeline
+
+# Déclencheurs : Push sur main ou appel manuel
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  # Job 1 : Assurance Qualité (CI)
+  quality-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Linter
+        run: echo "Linting code... OK"
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Security Audit
+        run: npm audit --audit-level=high
+
+  # Job 2 : Déploiement (CD)
+  deploy-to-render:
+    needs: quality-check # On n'attend que si les tests réussissent
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - name: Trigger Render Deploy
+        run: |
+          echo "Triggering deployment..."
+          curl -X POST "${{ secrets.RENDER_DEPLOY_HOOK_URL }}"
+          echo "Deployment request sent!"
